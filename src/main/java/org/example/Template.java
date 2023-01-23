@@ -10,166 +10,174 @@ import java.util.regex.*;
 
 public class Template {
     private static final Pattern TEXT_PATTERN = Pattern.compile("[#$]\\{([\\w\\.]+)}");
-    private final Deque<String> openedTags = new ArrayDeque<>();
-    private final List<Node> nodes;
+    private final Document originalDoc;
     private TemplateContext ctx;
-    private PrintStream out;
-    private String lastWhitespace;
 
     public Template(String templatePath) throws IOException {
         File tempFile = new File(templatePath);
-        Document doc = Jsoup.parse(tempFile, "UTF-8");
-        nodes = doc.childNodes();
+        originalDoc = Jsoup.parse(tempFile, "UTF-8");
     }
 
     public void render(TemplateContext ctx, PrintStream out) throws NoSuchFieldException, IllegalAccessException {
         this.ctx = ctx;
-        this.out = out;
-        renderNodes(nodes, true);
-        printClosingTags();
+        Document doc = originalDoc.clone();
+        renderNodes(doc);
+        out.print(doc);
     }
 
-    private void renderNodes(List<Node> nodes, boolean printTexts) throws NoSuchFieldException, IllegalAccessException {
-        for (Node node : nodes) {
-            if (node instanceof TextNode && printTexts) {
-                lastWhitespace = ((TextNode) node).getWholeText();
-                out.print(lastWhitespace);
-                //out.print("</" + openedTags.pop() + ">");
-                continue;
-            }
-
-
+    private void renderNodes(Node rootNode) throws NoSuchFieldException, IllegalAccessException {
+        for (Node node : rootNode.childNodes()) {
             Attributes attributes = node.attributes();
 
             if (attributes.size() == 0) {
-                printNodeWithoutAttr(node);
-                renderNodes(node.childNodes(), true);
+                renderNodes(node);
                 continue;
             }
 
-            processAttributes(node, attributes);
+            Element newElement = processAttributes(node, attributes);
+            if (newElement != null) {
+                rootNode.replaceWith(newElement);
+            }
         }
     }
 
-    private void processAttributes(Node node, Attributes attributes) throws NoSuchFieldException, IllegalAccessException {
-        boolean isEach = false;
+    private Element processAttributes(Node node, Attributes attributes) throws NoSuchFieldException, IllegalAccessException {
+        boolean hasIfAttr = false;
         for (Attribute attribute : attributes) {
             String attrName = attribute.getKey();
-            String attrValue = attribute.getValue();
             switch (attrName) {
-                case "t:each" -> {
-                    printEachNode(node, attrValue);
-                    isEach = true;
+                case "t:if" -> {
+                    hasIfAttr = true;
+                    System.out.println("if"); //todo add if logic
                 }
-                case "t:text" -> printTextNode(node, attrValue);
-                case "t:if" -> System.out.println("if");
+                case "t:each" -> {
+                    if (hasIfAttr) {
+                        throw new IllegalStateException("t:if combined with t:each is not supported");
+                    }
+                    return generateNewElementFromEach(node, attribute);
+                }
+                case "t:text" -> fixTextNode(node, attribute);
             }
         }
 
-        if (!isEach) {
-            renderNodes(node.childNodes(), false);
-        }
+        renderNodes(node);
+        return null;
     }
 
-    private void printNodeWithoutAttr(Node node) {
-        String openingTagName = node.nodeName();
-        if (openingTagName.equals("tbody") || openingTagName.equals("head")) {
-            return;
-        }
-
-        out.print("<" + openingTagName + ">");
-        if (openingTagName.equals("html")) {
-            out.println();
-        }
-
-        openedTags.push(openingTagName);
-    }
-
-    private void printTextNode(Node node, String attrValue) throws NoSuchFieldException, IllegalAccessException {
-        String[] attrParts = getAttrParts(attrValue);
-        String newText = getTextFromContext(attrParts[0], attrParts[1]);
-        printNode(node, attrValue, newText);
+    private void fixTextNode(Node node, Attribute attribute) throws NoSuchFieldException, IllegalAccessException {
+        String[] attrParts = getAttrParts(attribute.getValue());
+        String newText = getTextFromContext(attrParts);
+        ((Element) node).text(newText);
+        node.removeAttr(attribute.getKey());
     }
 
     private String[] getAttrParts(String attrValue) {
         Matcher matcher = TEXT_PATTERN.matcher(attrValue);
         if (!matcher.matches()) {
-            throw new IllegalStateException("invalid context attribute");
+            throw new IllegalStateException("invalid context attribute " + attrValue);
         }
 
         String ctxAttributeStr = matcher.group(1);
-        String[] attrParts = ctxAttributeStr.split("\\.");
+        return ctxAttributeStr.split("\\.");
+    }
 
-        if (attrParts.length != 2) {
-            throw new IllegalStateException("invalid context attribute");
+    private String getTextFromContext(String[] attrParts) throws IllegalAccessException, NoSuchFieldException {
+        Object fieldValue = null;
+
+        for (int i = 0; i < attrParts.length - 1; i++) {
+            String attrKey = attrParts[0];
+            Object attrValue = ctx.attributes.get(attrKey);
+
+            if (attrValue == null) {
+                throw new IllegalStateException("Missing context attribute " + attrKey);
+            }
+
+            String fieldName = attrParts[1];
+            Field field = attrValue.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            fieldValue = field.get(attrValue);
         }
 
-        return attrParts;
+        return fieldValue.toString();
     }
 
-    private void printNode(Node node, String attrValue, String newText) {
-        ((Element) node).text(newText);
-        node.removeAttr(attrValue);
-        String tagName = ((Element) node).tagName();
-        String strToPrint = String.format("<%s>%s</%s>", tagName, newText, tagName);
-        out.print(strToPrint);
-    }
-
-    private String getTextFromContext(String attrName, String attrFieldName) throws IllegalAccessException, NoSuchFieldException {
-        Object ctxAttribute = ctx.attributes.get(attrName);
-        Field field = ctxAttribute.getClass().getDeclaredField(attrFieldName);
-        field.setAccessible(true);
-        return field.get(ctxAttribute).toString();
-    }
-
-    private void printEachNode(Node node, String attrValue) throws NoSuchFieldException, IllegalAccessException {
-        Matcher matcher = getMatcher(attrValue);
-        String ctxAttrName = matcher.group(1);
-
-        Object[] values = (Object[]) ctx.attributes.get(ctxAttrName);
+    private Element generateNewElementFromEach(Node node, Attribute attribute) throws NoSuchFieldException, IllegalAccessException {
+        Object[] values = getObjectValues(attribute);
         Class<?> valuesClass = values[1].getClass();
 
-        for (int i = 0; i < values.length; i++) {
-            String strToPrint = "<" + node.nodeName() + ">";
-            if (i != 0) {
-                strToPrint = lastWhitespace + strToPrint;
-            }
-            out.print(strToPrint);
+        List<Field> fields = new ArrayList<>();
+        String childNodesNames = extractFields(node, valuesClass, fields);
 
-            for (Node childNode : node.childNodes()) {
-                if (childNode instanceof TextNode) {
-                    out.print(((TextNode) childNode).getWholeText());
-                    continue;
-                }
+        List<Element> newElements = createNewChildElements(node, values, fields, childNodesNames);
+        Element newElement = new Element(node.parent().nodeName());
+        newElements.forEach(newElement::appendChild);
+        return newElement;
+    }
 
-                String attribute = childNode.attr("t:text");
-                String[] attrParts = getAttrParts(attribute);
-                Field field = valuesClass.getDeclaredField(attrParts[1]);
-                field.setAccessible(true);
-                String newText = field.get(values[i]).toString();
-                printNode(childNode, attribute, newText);
+    private List<Element> createNewChildElements(Node node, Object[] values, List<Field> fields, String childNodesNames) throws IllegalAccessException {
+        List<Element> newElements = new ArrayList<>();
+
+        for (Object value : values) {
+            Element newElement = new Element(node.nodeName());
+
+            for (Field field : fields) {
+                String newText = field.get(value).toString();
+                Element newEl = new Element(childNodesNames);
+                newEl.text(newText);
+                newElement.appendChild(newEl);
             }
-            out.print("</" + node.nodeName() + ">");
+
+            newElements.add(newElement);
         }
+
+        return newElements;
+    }
+
+    private Object[] getObjectValues(Attribute attribute) {
+        Matcher matcher = getMatcher(attribute.getValue());
+        String attrKey = matcher.group(1);
+        Object valuesObj = ctx.attributes.get(attrKey);
+
+        if (!valuesObj.getClass().isArray()) {
+            throw new IllegalStateException("Context attribute is not iterable " + valuesObj);
+        }
+
+        return (Object[]) valuesObj;
+    }
+
+    private String extractFields(Node rootNode, Class<?> valuesClass, List<Field> fields) throws NoSuchFieldException {
+        String childNodesNames = null;
+
+        for (Node node : rootNode.childNodes()) {
+            if (node instanceof TextNode) {
+                continue;
+            }
+
+            if (childNodesNames == null) {
+                childNodesNames = node.nodeName();
+            }
+
+            String attr = node.attr("t:text");
+            String[] attrParts = getAttrParts(attr);
+            Field field = valuesClass.getDeclaredField(attrParts[1]);
+            field.setAccessible(true);
+            fields.add(field);
+        }
+
+        return childNodesNames;
     }
 
     private Matcher getMatcher(String attrValue) {
         String[] attrParts = attrValue.split(": ");
         if (attrParts.length != 2) {
-            throw new IllegalStateException("invalid context attribute");
+            throw new IllegalStateException("invalid context attribute " + attrValue);
         }
 
         Matcher matcher = TEXT_PATTERN.matcher(attrParts[1]);
         if (!matcher.matches()) {
-            throw new IllegalStateException("invalid context attribute");
+            throw new IllegalStateException("invalid context attribute" + attrParts[1]);
         }
 
         return matcher;
-    }
-
-    void printClosingTags() {
-        while (!openedTags.isEmpty()) {
-            out.println("</" + openedTags.pop() + ">");
-        }
     }
 }
