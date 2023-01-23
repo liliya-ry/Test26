@@ -4,23 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="692d9dd0-bbe0-44f3-ac73-9e3311eef4fd" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/dbnavigator.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/sonarlint/issuestore/index.pb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/uiDesigner.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/Template.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/TemplateContext.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/template.tm" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/Student.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/TemplateTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/WelcomeMessage.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/output.html" afterDir="false" />
+    <list default="true" id="692d9dd0-bbe0-44f3-ac73-9e3311eef4fd" name="Changes" comment="update">
+      <change beforePath="$PROJECT_DIR$/.idea/sonarlint/issuestore/index.pb" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sonarlint/issuestore/index.pb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/Template.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/Template.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/template.tm" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/template.tm" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,7 +43,8 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "last_opened_file_path": "D:/IdeaProjects/Java Backend Internship/src/tests/test15/DAO.java"
+    "SONARLINT_PRECOMMIT_ANALYSIS": "true",
+    "last_opened_file_path": "D:/IdeaProjects/Test26"
   }
 }]]></component>
   <component name="RecentsManager">
@@ -100,6 +90,14 @@
       <option name="presentableId" value="Default" />
       <updated>1674215776092</updated>
     </task>
+    <task id="LOCAL-00001" summary="update">
+      <created>1674228191360</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1674228191360</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -112,5 +110,9 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="update" />
+    <option name="LAST_COMMIT_MESSAGE" value="update" />
   </component>
 </project>

@@ -2,6 +2,7 @@ package org.example;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.*;
+
 import java.io.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -9,10 +10,11 @@ import java.util.regex.*;
 
 public class Template {
     private static final Pattern TEXT_PATTERN = Pattern.compile("[#$]\\{([\\w\\.]+)}");
-    private final Set<String> visitedTags = new HashSet<>();
+    private final Deque<String> openedTags = new ArrayDeque<>();
     private final List<Node> nodes;
     private TemplateContext ctx;
     private PrintStream out;
+    private String lastWhitespace;
 
     public Template(String templatePath) throws IOException {
         File tempFile = new File(templatePath);
@@ -23,16 +25,25 @@ public class Template {
     public void render(TemplateContext ctx, PrintStream out) throws NoSuchFieldException, IllegalAccessException {
         this.ctx = ctx;
         this.out = out;
-        renderNodes(nodes);
+        renderNodes(nodes, true);
+        printClosingTags();
     }
 
-    private void renderNodes(List<Node> nodes) throws NoSuchFieldException, IllegalAccessException {
+    private void renderNodes(List<Node> nodes, boolean printTexts) throws NoSuchFieldException, IllegalAccessException {
         for (Node node : nodes) {
+            if (node instanceof TextNode && printTexts) {
+                lastWhitespace = ((TextNode) node).getWholeText();
+                out.print(lastWhitespace);
+                //out.print("</" + openedTags.pop() + ">");
+                continue;
+            }
+
+
             Attributes attributes = node.attributes();
 
             if (attributes.size() == 0) {
                 printNodeWithoutAttr(node);
-                renderNodes(node.childNodes());
+                renderNodes(node.childNodes(), true);
                 continue;
             }
 
@@ -56,22 +67,22 @@ public class Template {
         }
 
         if (!isEach) {
-            renderNodes(node.childNodes());
+            renderNodes(node.childNodes(), false);
         }
     }
 
     private void printNodeWithoutAttr(Node node) {
         String openingTagName = node.nodeName();
-        String closingTagName = "t" + openingTagName;
-
-        if (visitedTags.contains(closingTagName)) {
-            visitedTags.remove(closingTagName);
-            out.println("<" + openingTagName + "/>");
+        if (openingTagName.equals("tbody") || openingTagName.equals("head")) {
             return;
         }
 
-        visitedTags.add(closingTagName);
-        out.println("<" + openingTagName + ">");
+        out.print("<" + openingTagName + ">");
+        if (openingTagName.equals("html")) {
+            out.println();
+        }
+
+        openedTags.push(openingTagName);
     }
 
     private void printTextNode(Node node, String attrValue) throws NoSuchFieldException, IllegalAccessException {
@@ -101,7 +112,7 @@ public class Template {
         node.removeAttr(attrValue);
         String tagName = ((Element) node).tagName();
         String strToPrint = String.format("<%s>%s</%s>", tagName, newText, tagName);
-        out.println(strToPrint);
+        out.print(strToPrint);
     }
 
     private String getTextFromContext(String attrName, String attrFieldName) throws IllegalAccessException, NoSuchFieldException {
@@ -118,13 +129,19 @@ public class Template {
         Object[] values = (Object[]) ctx.attributes.get(ctxAttrName);
         Class<?> valuesClass = values[1].getClass();
 
-        out.println("<" + node.nodeName() + ">");
-
-        for (Node childNode : node.childNodes()) {
-            if (childNode instanceof TextNode) {
-                continue;
+        for (int i = 0; i < values.length; i++) {
+            String strToPrint = "<" + node.nodeName() + ">";
+            if (i != 0) {
+                strToPrint = lastWhitespace + strToPrint;
             }
-            for (int i = 0; i < values.length; i++) {
+            out.print(strToPrint);
+
+            for (Node childNode : node.childNodes()) {
+                if (childNode instanceof TextNode) {
+                    out.print(((TextNode) childNode).getWholeText());
+                    continue;
+                }
+
                 String attribute = childNode.attr("t:text");
                 String[] attrParts = getAttrParts(attribute);
                 Field field = valuesClass.getDeclaredField(attrParts[1]);
@@ -132,9 +149,8 @@ public class Template {
                 String newText = field.get(values[i]).toString();
                 printNode(childNode, attribute, newText);
             }
+            out.print("</" + node.nodeName() + ">");
         }
-
-        out.println("</" + node.nodeName() + ">");
     }
 
     private Matcher getMatcher(String attrValue) {
@@ -149,5 +165,11 @@ public class Template {
         }
 
         return matcher;
+    }
+
+    void printClosingTags() {
+        while (!openedTags.isEmpty()) {
+            out.println("</" + openedTags.pop() + ">");
+        }
     }
 }
