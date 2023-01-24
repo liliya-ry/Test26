@@ -1,10 +1,8 @@
 package org.example;
 
-import com.sun.source.tree.BreakTree;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.*;
 
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -20,14 +18,14 @@ public class Template {
         originalDoc = Jsoup.parse(tempFile, "UTF-8");
     }
 
-    public void render(TemplateContext ctx, PrintStream out) throws NoSuchFieldException, IllegalAccessException {
+    public void render(TemplateContext ctx, PrintStream out) throws Exception {
         this.ctx = ctx;
         Document doc = originalDoc.clone();
         renderNodes(doc);
         out.print(doc);
     }
 
-    private void renderNodes(Node rootNode) throws NoSuchFieldException, IllegalAccessException {
+    private void renderNodes(Node rootNode) throws Exception {
         List<Element> elementsToRemove = new ArrayList<>();
         for (Node node : rootNode.childNodes()) {
             Attributes attributes = node.attributes();
@@ -55,7 +53,7 @@ public class Template {
         }
     }
 
-    private Element processAttributes(Node node, Attributes attributes) throws NoSuchFieldException, IllegalAccessException {
+    private Element processAttributes(Node node, Attributes attributes) throws Exception {
         boolean hasIfAttr = false;
         boolean ifCondition = true;
         boolean deleteNode = false;
@@ -86,7 +84,7 @@ public class Template {
         return null;
     }
 
-    private boolean parseCondition(String value) throws NoSuchFieldException, IllegalAccessException {
+    private boolean parseCondition(String value) throws Exception {
         return switch (value) {
             case "true" -> true;
             case "false" -> false;
@@ -94,7 +92,7 @@ public class Template {
         };
     }
 
-    private boolean isObjectTextNotNull(String value) throws IllegalAccessException, NoSuchFieldException {
+    private boolean isObjectTextNotNull(String value) throws Exception {
         String[] attrParts = getAttrParts(value);
         if (attrParts == null) {
             return true;
@@ -104,7 +102,7 @@ public class Template {
         return text != null;
     }
 
-    private boolean fixTextNode(Node node, Attribute attribute, boolean ifCondition) throws NoSuchFieldException, IllegalAccessException {
+    private boolean fixTextNode(Node node, Attribute attribute, boolean ifCondition) throws Exception {
         if (!ifCondition) {
             return true;
         }
@@ -129,7 +127,7 @@ public class Template {
         return ctxAttributeStr.split("\\.");
     }
 
-    private String getTextFromContext(String[] attrParts) throws IllegalAccessException, NoSuchFieldException {
+    private String getTextFromContext(String[] attrParts) throws Exception {
         Object fieldValue = null;
 
         for (int i = 0; i < attrParts.length - 1; i++) {
@@ -149,7 +147,7 @@ public class Template {
         return fieldValue == null ? null : fieldValue.toString();
     }
 
-    private Element generateNewElementFromEach(Node node, Attribute attribute) throws NoSuchFieldException, IllegalAccessException {
+    private Element generateNewElementFromEach(Node node, Attribute attribute) throws Exception {
         Object[] values = getObjectValues(attribute);
         Class<?> valuesClass = values[1].getClass();
 
@@ -162,7 +160,7 @@ public class Template {
         return newElement;
     }
 
-    private List<Element> createNewChildElements(Node node, Object[] values, List<Field> fields, String childNodesNames) throws IllegalAccessException {
+    private List<Element> createNewChildElements(Node node, Object[] values, List<Field> fields, String childNodesNames) throws Exception {
         List<Element> newElements = new ArrayList<>();
 
         for (Object value : values) {
@@ -170,9 +168,9 @@ public class Template {
 
             for (Field field : fields) {
                 String newText = field.get(value).toString();
-                Element newEl = new Element(childNodesNames);
-                newEl.text(newText);
-                newElement.appendChild(newEl);
+                Element newChildEl = new Element(childNodesNames);
+                newChildEl.text(newText);
+                newElement.appendChild(newChildEl);
             }
 
             newElements.add(newElement);
@@ -193,7 +191,7 @@ public class Template {
         return (Object[]) valuesObj;
     }
 
-    private String extractFields(Node rootNode, Class<?> valuesClass, List<Field> fields) throws NoSuchFieldException, IllegalAccessException {
+    private String extractFields(Node rootNode, Class<?> valuesClass, List<Field> fields) throws Exception{
         String childNodesNames = null;
 
         for (Node node : rootNode.childNodes()) {
