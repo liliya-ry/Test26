@@ -1,8 +1,10 @@
 package org.example;
 
+import com.sun.source.tree.BreakTree;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.*;
 
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -26,6 +28,7 @@ public class Template {
     }
 
     private void renderNodes(Node rootNode) throws NoSuchFieldException, IllegalAccessException {
+        List<Element> elementsToRemove = new ArrayList<>();
         for (Node node : rootNode.childNodes()) {
             Attributes attributes = node.attributes();
 
@@ -35,20 +38,34 @@ public class Template {
             }
 
             Element newElement = processAttributes(node, attributes);
-            if (newElement != null) {
-                rootNode.replaceWith(newElement);
+            if (newElement == null) {
+                continue;
             }
+
+            if (newElement.parent() == null) {
+                rootNode.replaceWith(newElement);
+            } else {
+                elementsToRemove.add(newElement);
+            }
+
+        }
+
+        for (Element element : elementsToRemove) {
+            element.remove();
         }
     }
 
     private Element processAttributes(Node node, Attributes attributes) throws NoSuchFieldException, IllegalAccessException {
         boolean hasIfAttr = false;
+        boolean ifCondition = true;
+        boolean deleteNode = false;
+
         for (Attribute attribute : attributes) {
             String attrName = attribute.getKey();
             switch (attrName) {
                 case "t:if" -> {
                     hasIfAttr = true;
-                    System.out.println("if"); //todo add if logic
+                    ifCondition = parseCondition(attribute.getValue());
                 }
                 case "t:each" -> {
                     if (hasIfAttr) {
@@ -56,25 +73,56 @@ public class Template {
                     }
                     return generateNewElementFromEach(node, attribute);
                 }
-                case "t:text" -> fixTextNode(node, attribute);
+                case "t:text" -> deleteNode = fixTextNode(node, attribute, ifCondition);
             }
+        }
+
+        //no t:each attribute
+        if (deleteNode) {
+            return (Element)node;
         }
 
         renderNodes(node);
         return null;
     }
 
-    private void fixTextNode(Node node, Attribute attribute) throws NoSuchFieldException, IllegalAccessException {
-        String[] attrParts = getAttrParts(attribute.getValue());
-        String newText = getTextFromContext(attrParts);
-        ((Element) node).text(newText);
+    private boolean parseCondition(String value) throws NoSuchFieldException, IllegalAccessException {
+        return switch (value) {
+            case "true" -> true;
+            case "false" -> false;
+            default -> isObjectTextNotNull(value);
+        };
+    }
+
+    private boolean isObjectTextNotNull(String value) throws IllegalAccessException, NoSuchFieldException {
+        String[] attrParts = getAttrParts(value);
+        if (attrParts == null) {
+            return true;
+        }
+
+        String text = getTextFromContext(attrParts);
+        return text != null;
+    }
+
+    private boolean fixTextNode(Node node, Attribute attribute, boolean ifCondition) throws NoSuchFieldException, IllegalAccessException {
+        if (!ifCondition) {
+            return true;
+        }
+
+        node.removeAttr("t:if");
         node.removeAttr(attribute.getKey());
+
+        String attrValue = attribute.getValue();
+        String[] attrParts = getAttrParts(attrValue);
+        String newText = attrParts == null ? attrValue : getTextFromContext(attrParts);
+        ((Element) node).text(newText);
+        return false;
     }
 
     private String[] getAttrParts(String attrValue) {
         Matcher matcher = TEXT_PATTERN.matcher(attrValue);
         if (!matcher.matches()) {
-            throw new IllegalStateException("invalid context attribute " + attrValue);
+            return null;
         }
 
         String ctxAttributeStr = matcher.group(1);
@@ -89,7 +137,7 @@ public class Template {
             Object attrValue = ctx.attributes.get(attrKey);
 
             if (attrValue == null) {
-                throw new IllegalStateException("Missing context attribute " + attrKey);
+                return null;
             }
 
             String fieldName = attrParts[1];
@@ -98,7 +146,7 @@ public class Template {
             fieldValue = field.get(attrValue);
         }
 
-        return fieldValue.toString();
+        return fieldValue == null ? null : fieldValue.toString();
     }
 
     private Element generateNewElementFromEach(Node node, Attribute attribute) throws NoSuchFieldException, IllegalAccessException {
@@ -145,7 +193,7 @@ public class Template {
         return (Object[]) valuesObj;
     }
 
-    private String extractFields(Node rootNode, Class<?> valuesClass, List<Field> fields) throws NoSuchFieldException {
+    private String extractFields(Node rootNode, Class<?> valuesClass, List<Field> fields) throws NoSuchFieldException, IllegalAccessException {
         String childNodesNames = null;
 
         for (Node node : rootNode.childNodes()) {
@@ -157,8 +205,14 @@ public class Template {
                 childNodesNames = node.nodeName();
             }
 
-            String attr = node.attr("t:text");
-            String[] attrParts = getAttrParts(attr);
+            String ifAttr = node.attr("t:if");
+            boolean ifCondition = parseCondition(ifAttr);
+            if (!ifCondition) {
+                continue;
+            }
+
+            String textAttr = node.attr("t:text");
+            String[] attrParts = getAttrParts(textAttr);
             Field field = valuesClass.getDeclaredField(attrParts[1]);
             field.setAccessible(true);
             fields.add(field);
