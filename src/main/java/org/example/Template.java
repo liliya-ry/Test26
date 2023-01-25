@@ -26,7 +26,7 @@ public class Template {
         this.ctx = ctx;
         this.out = out;
         renderNodes(root);
-        out.print(root);
+        System.out.println(root);
     }
 
     private void renderNodes(Node rootNode) throws NoSuchFieldException, IllegalAccessException {
