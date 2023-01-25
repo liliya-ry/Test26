@@ -1,9 +1,9 @@
 package org.example;
 
-import java.io.*;
+import java.io.IOException;
 
 public class TemplateTest {
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws IOException, NoSuchFieldException, IllegalAccessException {
         TemplateContext ctx = new TemplateContext();
         WelcomeMessage welcome = new WelcomeMessage("hello world");
         ctx.put("welcome", welcome);
@@ -15,9 +15,7 @@ public class TemplateTest {
         };
         ctx.put("students", students);
 
-        Template t = new Template("template.tm");
-        OutputStream out = new FileOutputStream("index.html");
-        PrintStream ps = new PrintStream(out);
-        t.render(ctx, ps);
+        Template t = new Template("D:\\IdeaProjects\\Test26\\src\\main\\resources\\template.tm");
+        t.render(ctx, System.out);
     }
 }
