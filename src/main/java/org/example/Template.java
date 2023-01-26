@@ -10,257 +10,173 @@ import java.util.regex.*;
 
 public class Template {
     private static final Pattern TEXT_PATTERN = Pattern.compile("[#$]\\{([\\w\\.]+)}");
-    private static final Pattern EQUALITY_PATTERN = Pattern.compile("\\$\\{([\\w\\.='\\s]+)}");
     private final Node root;
     private TemplateContext ctx;
     private PrintStream out;
-    private String lastWhitespace;
 
     public Template(String templatePath) throws IOException {
         File tempFile = new File(templatePath);
         Document doc = Jsoup.parse(tempFile, "UTF-8");
-        root = doc.root().childNode(0);
+        root = doc.childNode(0);
     }
 
     public void render(TemplateContext ctx, PrintStream out) throws NoSuchFieldException, IllegalAccessException {
         this.ctx = ctx;
         this.out = out;
-        renderNodes(root);
-        System.out.println(root);
+        renderNode(root);
     }
 
-    private void renderNodes(Node rootNode) throws NoSuchFieldException, IllegalAccessException {
-        printOpeningTag(rootNode.nodeName());
-        List<Node> childNodes = rootNode.childNodes();
-
-        for (int i = 0; i < childNodes.size(); i++) {
-            Node node = childNodes.get(i);
-            if (!(node instanceof TextNode)) {
-                processAttributes(node);
-                continue;
-            }
-
-            if (i == childNodes.size() - 1 && childNodes.size() != 1)
-                continue;
-
-            lastWhitespace = ((TextNode) node).getWholeText();
-            out.print(lastWhitespace);
-        }
-
-        printClosingTag(rootNode.nodeName());
-    }
-
-    private void processAttributes(Node node) throws NoSuchFieldException, IllegalAccessException {
-        Attributes attributes = node.attributes();
-        if (attributes.size() == 0) {
-            renderNodes(node);
+    private void renderNode(Node node) throws NoSuchFieldException, IllegalAccessException {
+        if (node instanceof TextNode) {
+            String text = ((TextNode) node).getWholeText();
+            out.print(text);
             return;
         }
 
-        boolean isEach = false;
+        List<Attribute> attrToPrint = new ArrayList<>();
+        boolean hasEach = processAttributes(node, attrToPrint);
+
+        if (hasEach)
+            return;
+
+        printOpeningTag(node.nodeName(), attrToPrint);
+        renderNodes(node);
+        printClosingTag(node.nodeName());
+    }
+
+    private void renderNodes(Node rootNode) throws NoSuchFieldException, IllegalAccessException {
+        for (Node node : rootNode.childNodes())
+            renderNode(node);
+    }
+
+    private boolean processAttributes(Node node, List<Attribute> attrToPrint) throws NoSuchFieldException, IllegalAccessException {
+        boolean hasEach = false;
         boolean ifCondition = true;
         boolean hasIf = false;
 
-        for (Attribute attribute : attributes) {
+        for (Attribute attribute : node.attributes()) {
             String attrName = attribute.getKey();
+            String attrValue = attribute.getValue();
+
             switch (attrName) {
                 case "t:if" -> {
-                    ifCondition = processIf(attribute.getValue());
+                    ifCondition = processIf(attrValue);
                     hasIf = true;
                 }
                 case "t:each" -> {
-                    if (!ifCondition)
-                        return;
-
-                    processEach(node, attribute);
-                    isEach = true;
+                    if (ifCondition) {
+                        processEach(node, attrValue);
+                        hasEach = true;
+                    }
                 }
                 case "t:text" -> {
-                    if (!ifCondition)
-                        return;
-                    fixTextNode(node, attribute, hasIf);
+                    if (ifCondition)
+                        fixTextNode(node, attrValue, hasIf);
                 }
+                default -> attrToPrint.add(attribute);
             }
         }
 
-        if (!isEach)
-            renderNodes(node);
+        return hasEach;
     }
 
     private boolean processIf(String attrValue) {
-        Matcher matcher = EQUALITY_PATTERN.matcher(attrValue);
-        if (!matcher.matches())
-            throw new IllegalStateException("Invalid expression " + attrValue);
-
-        String expression = matcher.group(1);
-        String[] exprParts = expression.split("==");
-
-        if (exprParts.length != 2)
-            throw new IllegalStateException("Invalid expression " + attrValue);
-
-        Object actualValue = getAttrFromContext(exprParts[0].split("\\."));
-        String expectedValue = exprParts[1].substring(1, exprParts[1].length() - 1);
-
-        return expectedValue.equals(actualValue);
+        String[] attrParts = getAttrParts(attrValue);
+        Object value = getAttrFromContext(attrParts);
+        return value != null && !value.equals(0) && !value.equals("");
     }
 
-    private void fixTextNode(Node node, Attribute attribute, boolean hasIf) {
-        String[] attrParts = getAttrParts(attribute.getValue(), hasIf);
+    private void fixTextNode(Node node, String attrValue, boolean hasIf) {
+        String[] attrParts = getAttrParts(attrValue);
         String newText = hasIf && attrParts.length == 1 ?
                 attrParts[0] :
                 getAttrFromContext(attrParts).toString();
         ((Element) node).text(newText);
     }
 
-    private String[] getAttrParts(String attrValue, boolean hasIf) {
+    private String[] getAttrParts(String attrValue) {
         Matcher matcher = TEXT_PATTERN.matcher(attrValue);
-        if (!matcher.matches()) {
-            if (!hasIf)
-                throw new IllegalStateException("Invalid context attribute " + attrValue);
+        if (!matcher.matches())
             return new String[]{attrValue};
-        }
-
 
         String ctxAttributeStr = matcher.group(1);
         String[] attrParts = ctxAttributeStr.split("\\.");
 
-        if (attrParts.length == 0) {
-            if (!hasIf)
-                throw new IllegalStateException("Invalid context attribute " + attrValue);
-            return new String[]{attrValue};
-        }
+        if (attrParts.length == 0)
+            throw new IllegalStateException("Invalid context attribute " + attrValue);
 
         return attrParts;
     }
 
     private Object getAttrFromContext(String[] attrParts) {
         Object value = null;
+
         for (int i = 0; i < attrParts.length - 1; i++) {
-            Object attr = ctx.attributes.get(attrParts[i]);
+            String attrKey = attrParts[i];
+            String attrValue = attrParts[i + 1];
+            Object attr = ctx.attributes.get(attrKey);
             try {
-                Field field = attr.getClass().getDeclaredField(attrParts[i + 1]);
+                Field field = attr.getClass().getDeclaredField(attrValue);
                 field.setAccessible(true);
                 value = field.get(attr);
             } catch (NoSuchFieldException e) {
-                throw new IllegalStateException("Invalid context attribute. No such field: " + attrParts[i + 1]);
+                throw new IllegalStateException("Invalid context attribute. No such field: " + attrValue);
             } catch (IllegalAccessException e) {
-                throw new IllegalStateException("Invalid context attribute. Can not access field: " + attrParts[i + 1]);
+                throw new IllegalStateException("Invalid context attribute. Can not access field: " + attrValue);
             }
         }
 
         return value;
     }
 
-    private void processEach(Node node, Attribute attribute) throws NoSuchFieldException, IllegalAccessException {
-        Matcher matcher = getMatcher(attribute.getValue());
-        String attrKey = matcher.group(1);
-        Object attrValue = ctx.attributes.get(attrKey);
-        if (attrValue.getClass().equals(Object[].class)) {
-            throw new IllegalStateException("Context attribute is not array " + attrValue);
-        }
-        Object[] values = (Object[])attrValue;
-
-        Class<?> valuesClass = values[1].getClass();
-        List<Node> childNodesCopies = new ArrayList<>();
-        List<Field> fields = extractFields(node, childNodesCopies, valuesClass);
-        List<String> whitespaces = findWhiteSpace(node);
-
-        printEachNodes(node, values, fields, childNodesCopies, whitespaces);
-    }
-
-    private void printEachNodes(Node node, Object[] values, List<Field> fields, List<Node> childNodesCopies, List<String> whitespaces) throws IllegalAccessException {
-        for (int i = 0; i < values.length; i++) {
-            if (i != 0)
-                out.print(lastWhitespace);
-
-            printOpeningTag(node.nodeName());
-
-            for (int j = 0; j < fields.size(); j++) {
-                Element element = (Element) childNodesCopies.get(j);
-
-                Field field = fields.get(j);
-                String newText = field.get(values[i]).toString();
-
-                element.text(newText);
-                element.removeAttr("t:text");
-
-                out.print(whitespaces.get(0));
-                out.print(element);
-            }
-
-            out.print(whitespaces.get(whitespaces.size() - 1));
-            printClosingTag(node.nodeName());
-        }
-        out.println();
-    }
-
-    private List<String> findWhiteSpace(Node rootNode) {
-        List<String> whitespaces = new ArrayList<>();
-        for (Node node : rootNode.childNodes()) {
-            if (node instanceof TextNode) {
-                String whitespace = ((TextNode) node).getWholeText();
-                whitespaces.add(whitespace);
-            }
-        }
-        return whitespaces;
-    }
-
-    private List<Field> extractFields(Node rootNode, List<Node> childNodesCopies, Class<?> valuesClass) throws NoSuchFieldException, IllegalAccessException {
-        List<Field> fields = new ArrayList<>();
-        for (Node node : rootNode.childNodes()) {
-            if (node instanceof TextNode)
-                continue;
-
-            childNodesCopies.add(node.clone());
-            Attributes attributes = node.attributes();
-            if (attributes.size() == 0)
-                continue;
-
-            for (Attribute attribute : attributes) {
-                if (attribute.getKey().equals("t:if")) {
-                    throw new IllegalAccessException("Can not execute if inside of each");
-                }
-
-                if (attribute.getKey().equals("t:text")) {
-                    String[] attrParts = getAttrParts(attribute.getValue(), false);
-                    Field field = valuesClass.getDeclaredField(attrParts[1]);
-                    field.setAccessible(true);
-                    fields.add(field);
-                }
-            }
-        }
-        return fields;
-    }
-
-    private Matcher getMatcher(String attrValue) {
+    private void processEach(Node node, String attrValue) throws NoSuchFieldException, IllegalAccessException {
         String[] attrParts = attrValue.split(": ");
         if (attrParts.length != 2)
             throw new IllegalStateException("Invalid context attribute " + attrValue);
 
-        Matcher matcher = TEXT_PATTERN.matcher(attrParts[1]);
+        Object[] values = getObjectsArray(attrParts[1]);
+        Element newEl = (Element) node.clone();
+        newEl.removeAttr("t:each");
+
+        for (Object value : values) {
+            ctx.put(attrParts[0], value);
+            renderNode(newEl);
+        }
+    }
+
+    private Object[] getObjectsArray(String attrValue) {
+        Matcher matcher = getMatcher(attrValue);
+        String attrKey = matcher.group(1);
+        Object value = ctx.attributes.get(attrKey);
+
+        if (value.getClass().equals(Object[].class))
+            throw new IllegalStateException("Context attribute is not array " + attrValue);
+
+        Object[] values = (Object[])value;
+
+        if (values.length == 0)
+            throw new IllegalStateException("Can not execute each on empty array");
+
+        return values;
+    }
+
+    private Matcher getMatcher(String attrValue) {
+        Matcher matcher = TEXT_PATTERN.matcher(attrValue);
         if (!matcher.matches())
             throw new IllegalStateException("Invalid context attribute " + attrValue);
 
         return matcher;
     }
 
-    void printOpeningTag(String tagName) {
-        if (tagName.equals("tbody") || tagName.equals("head"))
-            return;
+    void printOpeningTag(String tagName, List<Attribute> attributes) {
+        String attrStr = "";
+        for (Attribute attribute : attributes)
+            attrStr += " " + attribute.toString();
 
-        out.print("<" + tagName + ">");
-
-        if (tagName.equals("html"))
-            out.println();
+        out.print("<" + tagName + attrStr + ">");
     }
 
     void printClosingTag(String tagName) {
-        if (tagName.equals("tbody") || tagName.equals("head"))
-            return;
-
-        if (tagName.equals("html"))
-            out.println();
-
         out.print("</" + tagName + ">");
     }
 }

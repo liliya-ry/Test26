@@ -6,8 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="692d9dd0-bbe0-44f3-ac73-9e3311eef4fd" name="Changes" comment="update">
       <change beforePath="$PROJECT_DIR$/.idea/sonarlint/issuestore/index.pb" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sonarlint/issuestore/index.pb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/template.tm" beforeDir="false" afterPath="$PROJECT_DIR$/template.tm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/java/org/example/TemplateTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/org/example/TemplateTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/result.html" beforeDir="false" afterPath="$PROJECT_DIR$/result.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/Template.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/Template.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/org/example/WelcomeMessage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/org/example/WelcomeMessage.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/template.tm" beforeDir="false" afterPath="$PROJECT_DIR$/template.tm" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,7 +48,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "SONARLINT_PRECOMMIT_ANALYSIS": "true",
-    "last_opened_file_path": "D:/IdeaProjects/BlogWebApp",
+    "last_opened_file_path": "D:/IdeaProjects/Test26",
     "settings.editor.selected.configurable": "preferences.lookFeel"
   }
 }]]></component>
@@ -53,6 +56,7 @@
     <key name="MoveFile.RECENT_KEYS">
       <recent name="D:\IdeaProjects\Test26" />
       <recent name="D:\IdeaProjects\Test26\src" />
+      <recent name="D:\IdeaProjects\Test26\src\main" />
       <recent name="D:\IdeaProjects\Test26\src\main\resources" />
       <recent name="D:\IdeaProjects\Test26\src\main\java\org\example" />
     </key>
@@ -150,7 +154,14 @@
       <option name="project" value="LOCAL" />
       <updated>1674636452162</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="update">
+      <created>1674636631189</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1674636631189</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
