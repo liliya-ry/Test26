@@ -7,6 +7,12 @@
     <tr t:each="student: ${students}">
       <td t:text="${student.id}" />
       <td t:text="${student.name}" />
+      <td>
+          <tr t:each="student: ${students}">
+            <td t:text="${student.id}" />
+            <td t:text="${student.name}" />
+          </tr>
+      </td>
     </tr>
 </table>
 </body>

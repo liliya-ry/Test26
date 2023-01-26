@@ -20,13 +20,13 @@ public class Template {
         root = doc.childNode(0);
     }
 
-    public void render(TemplateContext ctx, PrintStream out) throws NoSuchFieldException, IllegalAccessException {
+    public void render(TemplateContext ctx, PrintStream out)  {
         this.ctx = ctx;
         this.out = out;
         renderNode(root);
     }
 
-    private void renderNode(Node node) throws NoSuchFieldException, IllegalAccessException {
+    private void renderNode(Node node) {
         if (node instanceof TextNode) {
             String text = ((TextNode) node).getWholeText();
             out.print(text);
@@ -44,12 +44,12 @@ public class Template {
         printClosingTag(node.nodeName());
     }
 
-    private void renderNodes(Node rootNode) throws NoSuchFieldException, IllegalAccessException {
+    private void renderNodes(Node rootNode) {
         for (Node node : rootNode.childNodes())
             renderNode(node);
     }
 
-    private boolean processAttributes(Node node, List<Attribute> attrToPrint) throws NoSuchFieldException, IllegalAccessException {
+    private boolean processAttributes(Node node, List<Attribute> attrToPrint) {
         boolean hasEach = false;
         boolean ifCondition = true;
         boolean hasIf = false;
@@ -129,7 +129,7 @@ public class Template {
         return value;
     }
 
-    private void processEach(Node node, String attrValue) throws NoSuchFieldException, IllegalAccessException {
+    private void processEach(Node node, String attrValue) {
         String[] attrParts = attrValue.split(": ");
         if (attrParts.length != 2)
             throw new IllegalStateException("Invalid context attribute " + attrValue);
