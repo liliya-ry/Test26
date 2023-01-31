@@ -11,8 +11,6 @@ import java.util.regex.*;
 public class Template {
     private static final Pattern TEXT_PATTERN = Pattern.compile("[#$]\\{([\\w\\.]+)}");
     private final Node root;
-    private TemplateContext ctx;
-    private PrintStream out;
 
     public Template(String templatePath) throws IOException {
         File tempFile = new File(templatePath);
@@ -21,12 +19,10 @@ public class Template {
     }
 
     public void render(TemplateContext ctx, PrintStream out)  {
-        this.ctx = ctx;
-        this.out = out;
-        renderNode(root);
+        renderNode(root, ctx, out);
     }
 
-    private void renderNode(Node node) {
+    private void renderNode(Node node, TemplateContext ctx, PrintStream out) {
         if (node instanceof TextNode) {
             String text = ((TextNode) node).getWholeText();
             out.print(text);
@@ -34,22 +30,22 @@ public class Template {
         }
 
         List<Attribute> attrToPrint = new ArrayList<>();
-        boolean hasEach = processAttributes(node, attrToPrint);
+        boolean hasEach = processAttributes(node, attrToPrint, ctx, out);
 
         if (hasEach)
             return;
 
-        printOpeningTag(node.nodeName(), attrToPrint);
-        renderNodes(node);
-        printClosingTag(node.nodeName());
+        printOpeningTag(node.nodeName(), attrToPrint, out);
+        renderNodes(node, ctx, out);
+        printClosingTag(node.nodeName(), out);
     }
 
-    private void renderNodes(Node rootNode) {
+    private void renderNodes(Node rootNode, TemplateContext ctx, PrintStream out) {
         for (Node node : rootNode.childNodes())
-            renderNode(node);
+            renderNode(node, ctx, out);
     }
 
-    private boolean processAttributes(Node node, List<Attribute> attrToPrint) {
+    private boolean processAttributes(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out) {
         boolean hasEach = false;
         boolean ifCondition = true;
         boolean hasIf = false;
@@ -60,18 +56,18 @@ public class Template {
 
             switch (attrName) {
                 case "t:if" -> {
-                    ifCondition = processIf(attrValue);
+                    ifCondition = processIf(attrValue, ctx);
                     hasIf = true;
                 }
                 case "t:each" -> {
                     if (ifCondition) {
-                        processEach(node, attrValue);
+                        processEach(node, attrValue, ctx, out);
                         hasEach = true;
                     }
                 }
                 case "t:text" -> {
                     if (ifCondition)
-                        fixTextNode(node, attrValue, hasIf);
+                        fixTextNode(node, attrValue, hasIf, ctx);
                 }
                 default -> attrToPrint.add(attribute);
             }
@@ -80,17 +76,17 @@ public class Template {
         return hasEach;
     }
 
-    private boolean processIf(String attrValue) {
+    private boolean processIf(String attrValue, TemplateContext ctx) {
         String[] attrParts = getAttrParts(attrValue);
-        Object value = getAttrFromContext(attrParts);
+        Object value = getAttrFromContext(attrParts, ctx);
         return value != null && !value.equals(0) && !value.equals("");
     }
 
-    private void fixTextNode(Node node, String attrValue, boolean hasIf) {
+    private void fixTextNode(Node node, String attrValue, boolean hasIf, TemplateContext ctx) {
         String[] attrParts = getAttrParts(attrValue);
         String newText = hasIf && attrParts.length == 1 ?
                 attrParts[0] :
-                getAttrFromContext(attrParts).toString();
+                getAttrFromContext(attrParts, ctx).toString();
         ((Element) node).text(newText);
     }
 
@@ -108,7 +104,7 @@ public class Template {
         return attrParts;
     }
 
-    private Object getAttrFromContext(String[] attrParts) {
+    private Object getAttrFromContext(String[] attrParts, TemplateContext ctx) {
         Object value = null;
 
         for (int i = 0; i < attrParts.length - 1; i++) {
@@ -129,22 +125,22 @@ public class Template {
         return value;
     }
 
-    private void processEach(Node node, String attrValue) {
+    private void processEach(Node node, String attrValue, TemplateContext ctx, PrintStream out) {
         String[] attrParts = attrValue.split(": ");
         if (attrParts.length != 2)
             throw new IllegalStateException("Invalid context attribute " + attrValue);
 
-        Object[] values = getObjectsArray(attrParts[1]);
+        Object[] values = getObjectsArray(attrParts[1], ctx);
         Element newEl = (Element) node.clone();
         newEl.removeAttr("t:each");
 
         for (Object value : values) {
             ctx.put(attrParts[0], value);
-            renderNode(newEl);
+            renderNode(newEl, ctx, out);
         }
     }
 
-    private Object[] getObjectsArray(String attrValue) {
+    private Object[] getObjectsArray(String attrValue, TemplateContext ctx) {
         Matcher matcher = getMatcher(attrValue);
         String attrKey = matcher.group(1);
         Object value = ctx.attributes.get(attrKey);
@@ -168,7 +164,7 @@ public class Template {
         return matcher;
     }
 
-    void printOpeningTag(String tagName, List<Attribute> attributes) {
+    void printOpeningTag(String tagName, List<Attribute> attributes, PrintStream out) {
         String attrStr = "";
         for (Attribute attribute : attributes)
             attrStr += " " + attribute.toString();
@@ -176,7 +172,7 @@ public class Template {
         out.print("<" + tagName + attrStr + ">");
     }
 
-    void printClosingTag(String tagName) {
+    void printClosingTag(String tagName, PrintStream out) {
         out.print("</" + tagName + ">");
     }
 }
