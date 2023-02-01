@@ -9,3 +9,11 @@ w
 G.idea/sonarlint/issuestore/2/3/23de0e3475d2697345b47432bb055741f82052fc,8\b\8b041f194fcfdb2f896d46045e719181d25d4c61
 w
 G.idea/sonarlint/issuestore/4/c/4c0ce1dce635ba6a9193c06b9962517aadda93e4,7\5\754ab30dfd771a72096753cbd91373265b4cd13f
+]
+-src/test/java/org/example/WelcomeMessage.java,f\6\f67a4e379d62dcfc9e1d896ba9a2a786d90f70ea
+U
+%src/test/java/org/example/output.html,4\c\4c0ce1dce635ba6a9193c06b9962517aadda93e4
+[
++src/test/java/org/example/TemplateTest.java,0\a\0ae45c5825c9c8c851c551982ec7a3790cedbd2c
+^
+.src/main/java/org/example/TemplateContext.java,1\e\1e03946add779a84d431f24d2791db0c7def9e3e

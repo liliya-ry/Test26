@@ -47,35 +47,36 @@ public class Template {
         boolean hasText = false;
 
         for (Attribute attribute : node.attributes()) {
-            String attrName = attribute.getKey();
             String attrValue = attribute.getValue();
-            switch (attrName) {
+            switch (attribute.getKey()) {
                 case "t:if" -> {
                     ifCondition = processIf(attrValue, ctx);
                     hasIf = true;
                 }
                 case "t:text" -> {
-                    if (!ifCondition)
-                        continue;
-
-                    String newText = getNewTextForNode(node, attrValue, hasIf, ctx);
-                    printOpeningTag(node.nodeName(), attrToPrint, out);
-                    out.print(newText);
-                    printClosingTag(node.nodeName(), out);
-                    hasText = true;
+                    if (ifCondition) {
+                        printTextNode(node, attrToPrint, ctx, out, hasIf, attrValue);
+                        hasText = true;
+                    }
                 }
                 case "t:each" -> {
-                    if (!ifCondition || hasText)
-                        continue;
-
-                    processEach(node, attrValue, ctx, out);
-                    hasEach = true;
+                    if (ifCondition && !hasText) {
+                        processEach(node, attrValue, ctx, out);
+                        hasEach = true;
+                    }
                 }
                 default -> attrToPrint.add(attribute);
             }
         }
 
         return  ifCondition && !hasEach && !hasText;
+    }
+
+    private void printTextNode(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out, boolean hasIf, String attrValue) {
+        String newText = getNewTextForNode(node, attrValue, hasIf, ctx);
+        printOpeningTag(node.nodeName(), attrToPrint, out);
+        out.print(newText);
+        printClosingTag(node.nodeName(), out);
     }
 
     private void renderNodes(Node rootNode, TemplateContext ctx, PrintStream out) {
