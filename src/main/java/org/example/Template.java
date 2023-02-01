@@ -18,11 +18,11 @@ public class Template {
         root = doc.childNode(0);
     }
 
-    public void render(TemplateContext ctx, PrintStream out)  {
+    public void render(TemplateContext ctx, PrintStream out) throws Exception {
         renderNode(root, ctx, out);
     }
 
-    private void renderNode(Node node, TemplateContext ctx, PrintStream out) {
+    private void renderNode(Node node, TemplateContext ctx, PrintStream out) throws Exception {
         if (node instanceof TextNode) {
             String text = ((TextNode) node).getWholeText();
             out.print(text);
@@ -40,7 +40,7 @@ public class Template {
         printClosingTag(node.nodeName(), out);
     }
 
-    private boolean processAttributes(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out) {
+    private boolean processAttributes(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out) throws Exception {
         boolean hasEach = false;
         boolean ifCondition = true;
         boolean hasIf = false;
@@ -72,32 +72,32 @@ public class Template {
         return  ifCondition && !hasEach && !hasText;
     }
 
-    private void printTextNode(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out, boolean hasIf, String attrValue) {
-        String newText = getNewTextForNode(node, attrValue, hasIf, ctx);
+    private void printTextNode(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out, boolean hasIf, String attrValue) throws Exception {
+        String newText = getNewTextForNode(attrValue, hasIf, ctx);
         printOpeningTag(node.nodeName(), attrToPrint, out);
         out.print(newText);
         printClosingTag(node.nodeName(), out);
     }
 
-    private void renderNodes(Node rootNode, TemplateContext ctx, PrintStream out) {
+    private void renderNodes(Node rootNode, TemplateContext ctx, PrintStream out) throws Exception {
         for (Node node : rootNode.childNodes())
             renderNode(node, ctx, out);
     }
 
-    private boolean processIf(String attrValue, TemplateContext ctx) {
+    private boolean processIf(String attrValue, TemplateContext ctx) throws Exception {
         String[] attrParts = getAttrParts(attrValue);
         Object value = getAttrFromContext(attrParts, ctx);
         return value != null && !value.equals(0) && !value.equals("");
     }
 
-    private String getNewTextForNode(Node node, String attrValue, boolean hasIf, TemplateContext ctx) {
+    private String getNewTextForNode(String attrValue, boolean hasIf, TemplateContext ctx) throws Exception {
         String[] attrParts = getAttrParts(attrValue);
         return  hasIf && attrParts.length == 1 ?
                 attrParts[0] :
                 getAttrFromContext(attrParts, ctx).toString();
     }
 
-    private String[] getAttrParts(String attrValue) {
+    private String[] getAttrParts(String attrValue) throws Exception {
         Matcher matcher = TEXT_PATTERN.matcher(attrValue);
         if (!matcher.matches())
             return new String[]{attrValue};
@@ -106,12 +106,12 @@ public class Template {
         String[] attrParts = ctxAttributeStr.split("\\.");
 
         if (attrParts.length == 0)
-            throw new IllegalStateException("Invalid context attribute " + attrValue);
+            throw new Exception("Invalid context attribute " + attrValue);
 
         return attrParts;
     }
 
-    private Object getAttrFromContext(String[] attrParts, TemplateContext ctx) {
+    private Object getAttrFromContext(String[] attrParts, TemplateContext ctx) throws Exception {
         Object value = null;
 
         for (int i = 0; i < attrParts.length - 1; i++) {
@@ -123,16 +123,16 @@ public class Template {
                 field.setAccessible(true);
                 value = field.get(attr);
             } catch (NoSuchFieldException e) {
-                throw new IllegalStateException("Invalid context attribute. No such field: " + attrValue);
+                throw new Exception("Invalid context attribute. No such field: " + attrValue);
             } catch (IllegalAccessException e) {
-                throw new IllegalStateException("Invalid context attribute. Can not access field: " + attrValue);
+                throw new Exception("Invalid context attribute. Can not access field: " + attrValue);
             }
         }
 
         return value;
     }
 
-    private void processEach(Node node, String attrValue, TemplateContext ctx, PrintStream out) {
+    private void processEach(Node node, String attrValue, TemplateContext ctx, PrintStream out) throws Exception {
         String[] attrParts = attrValue.split(": ");
         if (attrParts.length != 2)
             throw new IllegalStateException("Invalid context attribute " + attrValue);
@@ -147,7 +147,7 @@ public class Template {
         }
     }
 
-    private Collection<?> getIterableValues(String attrValue, TemplateContext ctx) {
+    private Collection<?> getIterableValues(String attrValue, TemplateContext ctx) throws Exception {
         Matcher matcher = getMatcher(attrValue);
         String attrKey = matcher.group(1);
         Object value = ctx.attributes.get(attrKey);
@@ -157,20 +157,20 @@ public class Template {
         }
 
         if (value.getClass().equals(Object[].class))
-            throw new IllegalStateException("Context attribute is not iterable " + attrValue);
+            throw new Exception("Context attribute is not iterable " + attrValue);
 
         Object[] values = (Object[])value;
 
         if (values.length == 0)
-            throw new IllegalStateException("Can not execute each on empty array");
+            throw new Exception("Can not execute each on empty array");
 
         return List.of(values);
     }
 
-    private Matcher getMatcher(String attrValue) {
+    private Matcher getMatcher(String attrValue) throws Exception {
         Matcher matcher = TEXT_PATTERN.matcher(attrValue);
         if (!matcher.matches())
-            throw new IllegalStateException("Invalid context attribute " + attrValue);
+            throw new TemplateException("Invalid context attribute " + attrValue);
 
         return matcher;
     }

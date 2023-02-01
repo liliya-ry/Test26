@@ -6,7 +6,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 
 public class TemplateTest {
-    public static void main(String[] args) throws IOException, NoSuchFieldException, IllegalAccessException {
+    public static void main(String[] args) throws Exception {
         TemplateContext ctx = new TemplateContext();
         WelcomeMessage welcome = new WelcomeMessage("hello world");
         ctx.put("welcome", welcome);
