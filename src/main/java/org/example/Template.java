@@ -30,6 +30,17 @@ public class Template {
         }
 
         List<Attribute> attrToPrint = new ArrayList<>();
+        boolean doRender = processAttributes(node, attrToPrint, ctx, out);
+
+        if (!doRender)
+            return;
+
+        printOpeningTag(node.nodeName(), attrToPrint, out);
+        renderNodes(node, ctx, out);
+        printClosingTag(node.nodeName(), out);
+    }
+
+    private boolean processAttributes(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out) {
         boolean hasEach = false;
         boolean ifCondition = true;
         boolean hasIf = false;
@@ -57,19 +68,14 @@ public class Template {
                     if (!ifCondition || hasText)
                         continue;
 
-                        processEach(node, attrValue, ctx, out);
-                        hasEach = true;
+                    processEach(node, attrValue, ctx, out);
+                    hasEach = true;
                 }
                 default -> attrToPrint.add(attribute);
             }
         }
 
-        if (!ifCondition || hasEach || hasText)
-            return;
-
-        printOpeningTag(node.nodeName(), attrToPrint, out);
-        renderNodes(node, ctx, out);
-        printClosingTag(node.nodeName(), out);
+        return  ifCondition && !hasEach && !hasText;
     }
 
     private void renderNodes(Node rootNode, TemplateContext ctx, PrintStream out) {
