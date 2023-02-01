@@ -30,9 +30,41 @@ public class Template {
         }
 
         List<Attribute> attrToPrint = new ArrayList<>();
-        boolean hasEach = processAttributes(node, attrToPrint, ctx, out);
+        boolean hasEach = false;
+        boolean ifCondition = true;
+        boolean hasIf = false;
+        boolean hasText = false;
 
-        if (hasEach)
+        for (Attribute attribute : node.attributes()) {
+            String attrName = attribute.getKey();
+            String attrValue = attribute.getValue();
+            switch (attrName) {
+                case "t:if" -> {
+                    ifCondition = processIf(attrValue, ctx);
+                    hasIf = true;
+                }
+                case "t:text" -> {
+                    if (!ifCondition)
+                        continue;
+
+                    String newText = getNewTextForNode(node, attrValue, hasIf, ctx);
+                    printOpeningTag(node.nodeName(), attrToPrint, out);
+                    out.print(newText);
+                    printClosingTag(node.nodeName(), out);
+                    hasText = true;
+                }
+                case "t:each" -> {
+                    if (!ifCondition || hasText)
+                        continue;
+
+                        processEach(node, attrValue, ctx, out);
+                        hasEach = true;
+                }
+                default -> attrToPrint.add(attribute);
+            }
+        }
+
+        if (!ifCondition || hasEach || hasText)
             return;
 
         printOpeningTag(node.nodeName(), attrToPrint, out);
@@ -45,49 +77,17 @@ public class Template {
             renderNode(node, ctx, out);
     }
 
-    private boolean processAttributes(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out) {
-        boolean hasEach = false;
-        boolean ifCondition = true;
-        boolean hasIf = false;
-
-        for (Attribute attribute : node.attributes()) {
-            String attrName = attribute.getKey();
-            String attrValue = attribute.getValue();
-
-            switch (attrName) {
-                case "t:if" -> {
-                    ifCondition = processIf(attrValue, ctx);
-                    hasIf = true;
-                }
-                case "t:each" -> {
-                    if (ifCondition) {
-                        processEach(node, attrValue, ctx, out);
-                        hasEach = true;
-                    }
-                }
-                case "t:text" -> {
-                    if (ifCondition)
-                        fixTextNode(node, attrValue, hasIf, ctx);
-                }
-                default -> attrToPrint.add(attribute);
-            }
-        }
-
-        return hasEach;
-    }
-
     private boolean processIf(String attrValue, TemplateContext ctx) {
         String[] attrParts = getAttrParts(attrValue);
         Object value = getAttrFromContext(attrParts, ctx);
         return value != null && !value.equals(0) && !value.equals("");
     }
 
-    private void fixTextNode(Node node, String attrValue, boolean hasIf, TemplateContext ctx) {
+    private String getNewTextForNode(Node node, String attrValue, boolean hasIf, TemplateContext ctx) {
         String[] attrParts = getAttrParts(attrValue);
-        String newText = hasIf && attrParts.length == 1 ?
+        return  hasIf && attrParts.length == 1 ?
                 attrParts[0] :
                 getAttrFromContext(attrParts, ctx).toString();
-        ((Element) node).text(newText);
     }
 
     private String[] getAttrParts(String attrValue) {
@@ -130,7 +130,7 @@ public class Template {
         if (attrParts.length != 2)
             throw new IllegalStateException("Invalid context attribute " + attrValue);
 
-        Object[] values = getObjectsArray(attrParts[1], ctx);
+        Collection<?> values = getIterableValues(attrParts[1], ctx);
         Element newEl = (Element) node.clone();
         newEl.removeAttr("t:each");
 
@@ -140,20 +140,24 @@ public class Template {
         }
     }
 
-    private Object[] getObjectsArray(String attrValue, TemplateContext ctx) {
+    private Collection<?> getIterableValues(String attrValue, TemplateContext ctx) {
         Matcher matcher = getMatcher(attrValue);
         String attrKey = matcher.group(1);
         Object value = ctx.attributes.get(attrKey);
 
+        if (value.getClass().isAssignableFrom(Iterable.class)) {
+            return (Collection<?>) value;
+        }
+
         if (value.getClass().equals(Object[].class))
-            throw new IllegalStateException("Context attribute is not array " + attrValue);
+            throw new IllegalStateException("Context attribute is not iterable " + attrValue);
 
         Object[] values = (Object[])value;
 
         if (values.length == 0)
             throw new IllegalStateException("Can not execute each on empty array");
 
-        return values;
+        return List.of(values);
     }
 
     private Matcher getMatcher(String attrValue) {
