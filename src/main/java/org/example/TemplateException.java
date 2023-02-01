@@ -1,5 +1,4 @@
 package org.example;
-
 public class TemplateException extends Throwable {
     private final String message;
 
