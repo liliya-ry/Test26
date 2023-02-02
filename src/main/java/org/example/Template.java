@@ -29,52 +29,37 @@ public class Template {
             return;
         }
 
-        List<Attribute> attrToPrint = new ArrayList<>();
-        boolean doRender = processAttributes(node, attrToPrint, ctx, out);
+        boolean hasIf = false;
+        boolean ifCondition = true;
+        String ifAttr = node.attr("t:if");
+        if (!ifAttr.isEmpty()) {
+            ifCondition = processIf(ifAttr, ctx);
+            hasIf = true;
+        }
 
-        if (!doRender)
+        if (!ifCondition)
             return;
 
-        printOpeningTag(node.nodeName(), attrToPrint, out);
+        String textAttr = node.attr("t:text");
+        if (!textAttr.isEmpty()) {
+            printTextNode(node, ctx, out, hasIf);
+            return;
+        }
+
+        String eachAttr = node.attr("t:each");
+        if (!eachAttr.isEmpty()) {
+            processEach(node, eachAttr, ctx, out);
+            return;
+        }
+
+        printOpeningTag(node, out);
         renderNodes(node, ctx, out);
         printClosingTag(node.nodeName(), out);
     }
 
-    private boolean processAttributes(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out) throws TemplateException {
-        boolean hasEach = false;
-        boolean ifCondition = true;
-        boolean hasIf = false;
-        boolean hasText = false;
-
-        for (Attribute attribute : node.attributes()) {
-            String attrValue = attribute.getValue();
-            switch (attribute.getKey()) {
-                case "t:if" -> {
-                    ifCondition = processIf(attrValue, ctx);
-                    hasIf = true;
-                }
-                case "t:text" -> {
-                    if (ifCondition) {
-                        printTextNode(node, attrToPrint, ctx, out, hasIf, attrValue);
-                        hasText = true;
-                    }
-                }
-                case "t:each" -> {
-                    if (ifCondition && !hasText) {
-                        processEach(node, attrValue, ctx, out);
-                        hasEach = true;
-                    }
-                }
-                default -> attrToPrint.add(attribute);
-            }
-        }
-
-        return  ifCondition && !hasEach && !hasText;
-    }
-
-    private void printTextNode(Node node, List<Attribute> attrToPrint, TemplateContext ctx, PrintStream out, boolean hasIf, String attrValue) throws TemplateException {
-        String newText = getNewTextForNode(attrValue, hasIf, ctx);
-        printOpeningTag(node.nodeName(), attrToPrint, out);
+    private void printTextNode(Node node, TemplateContext ctx, PrintStream out, boolean hasIf) throws TemplateException {
+        String newText = getNewTextForNode(node.attr("t:text"), hasIf, ctx);
+        printOpeningTag(node, out);
         out.print(newText);
         printClosingTag(node.nodeName(), out);
     }
@@ -181,12 +166,14 @@ public class Template {
         return matcher;
     }
 
-    void printOpeningTag(String tagName, List<Attribute> attributes, PrintStream out) {
+    void printOpeningTag(Node node, PrintStream out) {
         String attrStr = "";
-        for (Attribute attribute : attributes)
-            attrStr += " " + attribute.toString();
+        for (Attribute attribute : node.attributes()) {
+            if (!attribute.getKey().startsWith("t:"))
+                attrStr += " " + attribute;
+        }
 
-        out.print("<" + tagName + attrStr + ">");
+        out.print("<" + node.nodeName() + attrStr + ">");
     }
 
     void printClosingTag(String tagName, PrintStream out) {
